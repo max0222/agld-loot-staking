@@ -61,10 +61,16 @@ contract LootStaking is Ownable {
     mapping(uint256 => mapping(uint256 => bool)) public stakedLootIdsByEpoch;
     mapping(uint256 => uint256[]) public epochsByLootId;
     mapping(uint256 => uint256) public numLootStakedByEpoch;
+    mapping(uint256 => uint256) public numLootStakedById;
+    mapping(address => uint256) public numLootStakedByAccount;
 
     mapping(uint256 => mapping(uint256 => bool)) public stakedMLootIdsByEpoch;
     mapping(uint256 => uint256[]) public epochsByMLootId;
     mapping(uint256 => uint256) public numMLootStakedByEpoch;
+    mapping(uint256 => uint256) public numMLootStakedById;
+    mapping(address => uint256) public numMLootStakedByAccount;
+
+    mapping(address => uint256) public claimByAccount;
 
     /*///////////////////////////////////////////////////////////////
                              CONSTRUCTOR
@@ -160,7 +166,7 @@ contract LootStaking is Ownable {
     function signalLootStake(
         uint256[] calldata _ids
     ) external {
-        _signalStake(_ids, LOOT, stakedLootIdsByEpoch, numLootStakedByEpoch);
+        _signalStake(_ids, LOOT, stakedLootIdsByEpoch, numLootStakedByEpoch, numLootStakedById, numLootStakedByAccount);
     }
 
     /// @notice Stakes mLoot bags for upcoming epoch.
@@ -168,7 +174,7 @@ contract LootStaking is Ownable {
     function signalMLootStake(
         uint256[] calldata _ids
     ) external {
-        _signalStake(_ids, MLOOT, stakedMLootIdsByEpoch, numMLootStakedByEpoch);
+        _signalStake(_ids, MLOOT, stakedMLootIdsByEpoch, numMLootStakedByEpoch, numMLootStakedById, numMLootStakedByAccount);
     }
 
     /// @notice Stakes token ids of a specific collection for the immediate next
@@ -181,7 +187,9 @@ contract LootStaking is Ownable {
         uint256[] calldata _ids,
         SolmateERC721 _nftToken,
         mapping(uint256 => mapping(uint256 => bool)) storage stakedNFTsByEpoch,
-        mapping(uint256 => uint256) storage numNFTsStakedByEpoch
+        mapping(uint256 => uint256) storage numNFTsStakedByEpoch,
+        mapping(uint256 => uint256) storage numNFTsStakedById,
+        mapping(address => uint256) storage numNFTsStakedByAccount
     ) internal {
         if (stakingStartTime == 0) revert StakingNotActive();
         uint256 currentEpoch = getCurrentEpoch();
@@ -200,6 +208,8 @@ contract LootStaking is Ownable {
             // mLoot unlikely to reach overflow limit.
             unchecked {
                 ++numNFTsStakedByEpoch[signalEpoch];
+                ++numNFTsStakedById[bagId];
+                ++numNFTsStakedByAccount[msg.sender];
             }
 
             // Mark NFT as staked for this epoch.
@@ -274,6 +284,7 @@ contract LootStaking is Ownable {
             unchecked { ++i; }
         }
 
+        claimByAccount[msg.sender] += rewards;
         AGLD.safeTransfer(msg.sender, rewards);
         emit RewardsClaimed(msg.sender, rewards);
     }
